@@ -66,6 +66,16 @@ Sahib onu WhatsApp-a yapışdırıb göndərir.
   Backup qovluğu da (`Services/BackupService.cs`) eyni məntiqlə oradan asılıdır, ayrıca
   dəyişməyə ehtiyac yoxdur (baza yolundan avtomatik təyin olunur).
 
+- **RİSK — baza sxem dəyişikliyi.** `Data/AppDbContext.cs`-də `Database.EnsureCreated()`
+  istifadə olunur — bu, yalnız baza HEÇ YOXDURSA yaradır, mövcud bazanı YENİLƏYƏ BİLMİR.
+  Müştəriyə çatdıqdan sonra `Part` (və ya `Template`) modelinə yeni sahə əlavə etsək,
+  proqram çökəcək ("no such column") və ya bazanı silmək lazım gələcək — bu da müştərinin
+  bütün mallarının itməsi deməkdir. İnkişaf mərhələsində bu dəfələrlə baş verib (məs.
+  `RafYeri` sahəsi əlavə olunanda yerli test bazası əl ilə silinməli oldu).
+  **Installer mərhələsindən ƏVVƏL həll olunmalıdır** — ya EF Core Migrations-a keçid,
+  ya da sadə versiya yoxlaması (bazada "sxem versiyası" saxlayıb, köhnədirsə əl ilə ALTER
+  TABLE ilə yeniləmək). Bunsuz növbəti hər model dəyişikliyi müştəri bazasını poza bilər.
+
 ---
 
 ## Versiya 1-də OLMAYACAQ
