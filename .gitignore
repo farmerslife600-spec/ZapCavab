@@ -1,0 +1,11 @@
+# .NET build nəticələri — bunlar kompüterdə avtomatik yaranır, GitHub-a lazım deyil
+bin/
+obj/
+
+# Visual Studio / Rider iş faylları
+.vs/
+.idea/
+*.user
+
+# Axtarış jurnalı (yerli test datasıdır, hər kompüterdə fərqli ola bilər)
+axtaris_jurnali.csv
