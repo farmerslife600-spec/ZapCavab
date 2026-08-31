@@ -1,33 +1,27 @@
+using ZapCavab.Data;
 using ZapCavab.Models;
 using ZapCavab.Services;
 
-// ZapCavab — test proqramı: mal siyahısını qurur, CLAUDE.md-dəki test hallarını işə salır
+// ZapCavab — test proqramı: bazanı qurur, CLAUDE.md-dəki test hallarını işə salır
 // və nəticələri konsola çap edir. UI (WPF) hələ yoxdur, bu yalnız axtarış məntiqinin yoxlanmasıdır.
 
-// 1) Test üçün kiçik mal anbarı (sonradan Excel-dən import olunacaq)
-var mallar = new List<Part>
-{
-    new() { Id = 1, Brand = "Toyota", Model = "Prado", YearFrom = 2010, YearTo = 2017,
-            PartNameAz = "Ön əyləc altlığı", OemCode = "04465-60310", Price = 45, StockQty = 5 },
+// 1) Baza faylı əvvəldən var idimi? (Backup üçün lazımdır — boş bazanı backup etmək mənasızdır)
+var bazaArtiqVarIdi = File.Exists(AppDbContext.BazaFayliYolu);
 
-    new() { Id = 2, Brand = "Toyota", Model = "Prado", YearFrom = 2010, YearTo = 2017,
-            PartNameAz = "Ön əyləc altlığı (analoq)", OemCode = "04465-60290", Price = 32, StockQty = 0 },
+using var db = new AppDbContext();
 
-    new() { Id = 3, Brand = "Toyota", Model = "Prado", YearFrom = 2010, YearTo = 2017,
-            PartNameAz = "Ön əyləc altlığı (orijinal)", OemCode = "D1060-JK50A", Price = 68, StockQty = 2 },
+// 2) Baza yoxdursa yaradır (fayl + cədvəllər), varsa toxunmur
+db.Database.EnsureCreated();
 
-    new() { Id = 4, Brand = "Toyota", Model = "Prado", YearFrom = 2010, YearTo = 2017,
-            PartNameAz = "Arxa amortizator", OemCode = "48531-69745", Price = 120, StockQty = 3 },
+// 3) Backup — yalnız baza əvvəldən mövcud idisə (ilk açılışda backup ediləcək məzmun yoxdur)
+if (bazaArtiqVarIdi)
+    BackupService.BackupEt(AppDbContext.BazaFayliYolu);
 
-    new() { Id = 5, Brand = "Toyota", Model = "Camry", YearFrom = 2015, YearTo = 2019,
-            PartNameAz = "Yağ filtri", OemCode = "90915-YZZD4", Price = 12, StockQty = 10 },
+// 4) Baza boşdursa (ilk açılış), test mallarını doldurur
+db.IlkVeriləriYarat();
 
-    new() { Id = 6, Brand = "Hyundai", Model = "Elantra", YearFrom = 2016, YearTo = 2020,
-            PartNameAz = "Ön fara", OemCode = "92101-F2000", Price = 95, StockQty = 1 },
-
-    new() { Id = 7, Brand = "Toyota", Model = "Prado", YearFrom = 2010, YearTo = 2017,
-            PartNameAz = "Ön fara", OemCode = "81150-60J51", Price = 210, StockQty = 1 },
-};
+// 5) Mallar artıq kodun içindən yox, bazadan oxunur
+var mallar = db.Parts.ToList();
 
 var logger = new SearchLogger();
 
@@ -104,3 +98,91 @@ if (tapilmayanlar.Count == 0)
 else
     foreach (var s in tapilmayanlar)
         Console.WriteLine($"  - {s}");
+
+// 7) PartService (CRUD) testləri — ƏSL BAZAYA TOXUNMUR, ayrıca müvəqqəti bazada işləyir
+Console.WriteLine("\n=== PartService (CRUD) testləri ===\n");
+
+var testBazaYolu = Path.Combine(AppContext.BaseDirectory, "zapcavab_test.db");
+if (File.Exists(testBazaYolu))
+    File.Delete(testBazaYolu);
+
+var crudHamisiKecdi = true;
+
+void Yoxla(string ad, bool serti)
+{
+    crudHamisiKecdi &= serti;
+    Console.WriteLine($"  {ad}: {(serti ? "✅ PASS" : "❌ FAIL")}");
+}
+
+using (var testDb = new AppDbContext(testBazaYolu))
+{
+    testDb.Database.EnsureCreated();
+    var partService = new PartService(testDb);
+
+    Yoxla("Boş bazada Say() == 0", partService.Say() == 0);
+
+    var yeniMal = new Part
+    {
+        Brand = "Kia", Model = "Rio", YearFrom = 2015, YearTo = 2020,
+        PartNameAz = "Ön əyləc altlığı", OemCode = "58101-H9A00", Price = 40, StockQty = 4
+    };
+    var n1 = partService.Elave(yeniMal);
+    Yoxla("Düzgün mal əlavə olunur", n1.Ugurlu && partService.Say() == 1);
+
+    var bosAd = new Part { Brand = "Kia", Model = "Rio", YearFrom = 2015, YearTo = 2020, PartNameAz = "", OemCode = "AAA-111", Price = 10, StockQty = 1 };
+    Yoxla("Boş ad rədd olunur", !partService.Elave(bosAd).Ugurlu && partService.Say() == 1);
+
+    var menfiQiymet = new Part { Brand = "Kia", Model = "Rio", YearFrom = 2015, YearTo = 2020, PartNameAz = "Test", OemCode = "AAA-222", Price = -5, StockQty = 1 };
+    Yoxla("Mənfi qiymət rədd olunur", !partService.Elave(menfiQiymet).Ugurlu && partService.Say() == 1);
+
+    var menfiQaliq = new Part { Brand = "Kia", Model = "Rio", YearFrom = 2015, YearTo = 2020, PartNameAz = "Test", OemCode = "AAA-333", Price = 10, StockQty = -1 };
+    Yoxla("Mənfi qalıq rədd olunur", !partService.Elave(menfiQaliq).Ugurlu && partService.Say() == 1);
+
+    var sehvIl = new Part { Brand = "Kia", Model = "Rio", YearFrom = 2020, YearTo = 2015, PartNameAz = "Test", OemCode = "AAA-444", Price = 10, StockQty = 1 };
+    Yoxla("YearFrom > YearTo rədd olunur", !partService.Elave(sehvIl).Ugurlu && partService.Say() == 1);
+
+    var tekrar = new Part { Brand = "Kia", Model = "Sportage", YearFrom = 2018, YearTo = 2022, PartNameAz = "Başqa ad", OemCode = "58101-H9A00", Price = 99, StockQty = 2 };
+    Yoxla("Təkrar OEM+marka rədd olunur", !partService.Elave(tekrar).Ugurlu && partService.Say() == 1);
+
+    Yoxla("HamisiniGetir() 1 mal qaytarır", partService.HamisiniGetir().Count == 1);
+
+    var tapilanMal = partService.Getir(yeniMal.Id);
+    Yoxla("Getir(mövcud id) malı tapır", tapilanMal != null && tapilanMal.OemCode == "58101-H9A00");
+
+    Yoxla("Getir(mövcud olmayan id) null qaytarır", partService.Getir(9999) == null);
+
+    yeniMal.Price = 55;
+    var n7 = partService.Deyis(yeniMal);
+    var yenilenmisMal = partService.Getir(yeniMal.Id);
+    Yoxla("Deyis() qiyməti yeniləyir", n7.Ugurlu && yenilenmisMal!.Price == 55);
+
+    yeniMal.Price = -100;
+    var n8 = partService.Deyis(yeniMal);
+    var deyismemisMal = partService.Getir(yeniMal.Id);
+    Yoxla("Deyis() mənfi qiyməti rədd edir (dəyişməz qalır)", !n8.Ugurlu && deyismemisMal!.Price == 55);
+
+    var yoxMal = new Part { Id = 9999, Brand = "X", Model = "Y", YearFrom = 2020, YearTo = 2021, PartNameAz = "Test", OemCode = "ZZZ", Price = 1, StockQty = 1 };
+    Yoxla("Deyis() mövcud olmayan ID-ni rədd edir", !partService.Deyis(yoxMal).Ugurlu);
+
+    var n10 = partService.Sil(yeniMal.Id);
+    Yoxla("Sil() malı silir", n10.Ugurlu && partService.Say() == 0);
+
+    Yoxla("Sil() mövcud olmayan ID-ni rədd edir", !partService.Sil(9999).Ugurlu);
+}
+
+// Test bazası yalnız sınaq üçün idi — silirik.
+// SQLite bağlantı hovuzu (connection pool) faylı DbContext bağlanandan sonra da açıq
+// saxlaya bilər — əvvəlcə hovuzu təmizləyirik ki, "fayl başqa proses tərəfindən
+// istifadə olunur" xətası olmasın.
+Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+try
+{
+    File.Delete(testBazaYolu);
+}
+catch (IOException)
+{
+    // Test faylı silinə bilmədi — problem deyil, növbəti işə salınmada yenidən
+    // silinməyə cəhd olunacaq (bax: faylın yaradılmazdan əvvəlki yoxlama).
+}
+
+Console.WriteLine(crudHamisiKecdi ? "\n=== CRUD testləri: hamısı keçdi ✅ ===" : "\n=== CRUD testləri: bəziləri uğursuz oldu ❌ ===");

@@ -55,6 +55,19 @@ Sahib onu WhatsApp-a yapışdırıb göndərir.
 
 ---
 
+## Açıq qeydlər (installer addımında unutma!)
+
+- **Baza faylının yeri dəyişməlidir.** Hazırda `zapcavab.db` proqramın öz qovluğunda
+  (`bin/Debug/net8.0/`) yaranır — bu, YALNIZ inkişaf mərhələsi üçündür. Real quraşdırmada
+  (Program Files-a quraşdırılanda) proqram öz qovluğuna yaza bilməyəcək, çünki adi istifadəçinin
+  Program Files-a yazmaq hüququ yoxdur (admin tələb olunur). Installer (Inno Setup) addımında
+  baza faylının yolu `%LocalAppData%\ZapCavab\zapcavab.db` (yəni `AppData/Local/ZapCavab/`)
+  olaraq dəyişdirilməlidir — bunu `Data/AppDbContext.cs`-dəki `BazaFayliYolu` xassəsində et.
+  Backup qovluğu da (`Services/BackupService.cs`) eyni məntiqlə oradan asılıdır, ayrıca
+  dəyişməyə ehtiyac yoxdur (baza yolundan avtomatik təyin olunur).
+
+---
+
 ## Versiya 1-də OLMAYACAQ
 
 Bunları təklif etmə, əlavə etmə:
