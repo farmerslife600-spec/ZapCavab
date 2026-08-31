@@ -28,6 +28,9 @@ public class Part
     // Anbarda neçə ədəd qaldığı
     public int StockQty { get; set; }
 
+    // Rəf yeri — malın anbarda harada olduğu (məsələn "A3"). İxtiyaridir, boş ola bilər.
+    public string RafYeri { get; set; } = string.Empty;
+
     // Anbarda olub-olmadığını tez yoxlamaq üçün köməkçi xassə
     public bool InStock => StockQty > 0;
 }

@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using ZapCavab.Data;
 using ZapCavab.Models;
 using ZapCavab.Services;
@@ -186,3 +187,99 @@ catch (IOException)
 }
 
 Console.WriteLine(crudHamisiKecdi ? "\n=== CRUD testləri: hamısı keçdi ✅ ===" : "\n=== CRUD testləri: bəziləri uğursuz oldu ❌ ===");
+
+// 8) Excel idxal testi — nümunə fayl yaradıb ƏSL bazaya idxal edirik (2 dəfə, təkrarlanma olmasın deyə)
+Console.WriteLine("\n=== Excel idxal testi ===\n");
+
+var numuneFayl = Path.Combine(AppContext.BaseDirectory, "numune_mallar.xlsx");
+NumuneExcelYarat(numuneFayl);
+
+var importServisi = new ExcelImportService(new PartService(db));
+
+Console.WriteLine($"Bazada idxaldan ƏVVƏL: {db.Parts.Count()} mal\n");
+
+Console.WriteLine("--- 1-ci idxal (fayl ilk dəfə yüklənir) ---");
+NeticeCapEt(importServisi.Idxal(numuneFayl));
+
+Console.WriteLine("\n--- 2-ci idxal (EYNİ fayl TƏKRAR yüklənir — heç nə təkrarlanmamalıdır) ---");
+NeticeCapEt(importServisi.Idxal(numuneFayl));
+
+Console.WriteLine($"\nBazada idxaldan SONRA: {db.Parts.Count()} mal");
+
+void NeticeCapEt(ImportNeticesi n)
+{
+    if (!n.UmumiUgurlu)
+    {
+        Console.WriteLine($"  ÜMUMİ XƏTA: {n.UmumiXeta}");
+        return;
+    }
+
+    Console.WriteLine($"  Əlavə olundu: {n.EleaveOlunan}");
+    Console.WriteLine($"  Yeniləndi: {n.Yenilenen}");
+    Console.WriteLine($"  Atlandı: {n.Atlanan}");
+
+    if (n.AtlanmaSebebleri.Count > 0)
+    {
+        Console.WriteLine("  Atlanma səbəbləri:");
+        foreach (var s in n.AtlanmaSebebleri)
+            Console.WriteLine($"    - {s}");
+    }
+}
+
+// Test üçün nümunə .xlsx faylı yaradır: 20 sətir (17 düzgün + 3 səhv), sütun adları
+// qəsdən qarışıq yazılıb (Adı/Marka/OEM Kodu/Say) ki, avtomatik tanıma yoxlanılsın.
+// 2 sətir mövcud seed mallarla eyni Marka+OEM daşıyır (YENİLƏNMƏ yolunu sınamaq üçün).
+void NumuneExcelYarat(string yol)
+{
+    using var kitab = new XLWorkbook();
+    var vereqe = kitab.Worksheets.Add("Mallar");
+
+    var basliqlar = new[] { "Adı", "OEM Kodu", "Marka", "Model", "İl başlanğıc", "İl son", "Say", "Qiymət", "Rəf" };
+    for (var i = 0; i < basliqlar.Length; i++)
+        vereqe.Cell(1, i + 1).Value = basliqlar[i];
+
+    object?[][] setirler =
+    {
+        // Mövcud seed mallarla eyni Marka+OEM — YENİLƏNMƏ testi (qiymət/qalıq dəyişib)
+        new object?[] { "Ön əyləc altlığı", "04465-60310", "Toyota", "Prado", 2010, 2017, 8, 50, "A1" },
+        new object?[] { "Yağ filtri", "90915-YZZD4", "Toyota", "Camry", 2015, 2019, 20, 15, "B2" },
+
+        // Yeni mallar — ƏLAVƏ ETMƏ testi
+        new object?[] { "Arxa əyləc altlığı", "04466-60320", "Toyota", "Prado", 2010, 2017, 6, 48, "A2" },
+        new object?[] { "Hava filtri", "17801-0V010", "Toyota", "Camry", 2015, 2019, 15, 18, "B3" },
+        new object?[] { "Salon filtri", "87139-0N030", "Toyota", "Camry", 2015, 2019, 10, 22, "B4" },
+        new object?[] { "Şam", "90919-01247", "Toyota", "Camry", 2015, 2019, 30, 8, "C1" },
+        new object?[] { "Amortizator", "KYB334523", "Hyundai", "Elantra", 2016, 2020, 4, 150, "D1" },
+        new object?[] { "Radiator", "25310-2E200", "Hyundai", "Elantra", 2016, 2020, 2, 280, "D2" },
+        new object?[] { "Akkumulyator", "56-19", "Kia", "Rio", 2015, 2020, 5, 180, "E1" },
+        new object?[] { "Əyləc diski", "517123", "Kia", "Sportage", 2016, 2021, 6, 90, "E2" },
+        new object?[] { "Kəmər", "13568-0T010", "Toyota", "Prado", 2010, 2017, 3, 65, "A3" },
+        new object?[] { "Reyka", "45510-60271", "Toyota", "Prado", 2010, 2017, 1, 420, "A4" },
+        new object?[] { "Bufer", "52119-60957", "Toyota", "Prado", 2010, 2017, 1, 350, "A5" },
+        new object?[] { "Güzgü", "87910-60492", "Toyota", "Prado", 2010, 2017, 2, 95, "A6" },
+        new object?[] { "Generator", "27060-31170", "Toyota", "Camry", 2015, 2019, 2, 320, "B5" },
+        new object?[] { "Starter", "28100-31170", "Toyota", "Camry", 2015, 2019, 2, 290, "B6" },
+        new object?[] { "Topça", "43330-09030", "Toyota", "Camry", 2015, 2019, 4, 75, "B7" },
+
+        // 3 SƏHV SƏTIR
+        new object?[] { "", "12345-ABCDE", "Toyota", "Prado", 2010, 2017, 5, 40, "F1" },       // boş ad
+        new object?[] { "Tyaqa", "45450-09010", "Toyota", "Prado", 2010, 2017, 3, -25, "F2" },  // mənfi qiymət
+        new object?[] { "Şlanq", "16571-0V010", "Toyota", "Camry", 2019, 2015, 5, 20, "F3" },   // il başlanğıc > il son
+    };
+
+    for (var setirIndeksi = 0; setirIndeksi < setirler.Length; setirIndeksi++)
+    {
+        for (var sutunIndeksi = 0; sutunIndeksi < setirler[setirIndeksi].Length; sutunIndeksi++)
+        {
+            var deyer = setirler[setirIndeksi][sutunIndeksi];
+            var xana = vereqe.Cell(setirIndeksi + 2, sutunIndeksi + 1);
+
+            if (deyer is int tamEded)
+                xana.Value = tamEded;
+            else
+                xana.Value = deyer?.ToString() ?? string.Empty;
+        }
+    }
+
+    kitab.SaveAs(yol);
+}

@@ -39,6 +39,15 @@ public class PartService
         return _db.Parts.Count();
     }
 
+    // Marka + OEM kod üzrə mövcud malı tapır (böyük/kiçik hərfə həssas deyil).
+    // Excel idxalında "bu mal artıq bazadadırmı?" sualına cavab vermək üçün istifadə olunur.
+    public Part? BrandVeOemIleTap(string brand, string oemCode)
+    {
+        return _db.Parts.FirstOrDefault(p =>
+            p.Brand.ToLower() == brand.ToLower() &&
+            p.OemCode.ToLower() == oemCode.ToLower());
+    }
+
     // Yeni mal əlavə edir. Uyğunsuzluq varsa əlavə etmir, səbəbini mesajda qaytarır.
     public NeticeMesaji Elave(Part mal)
     {

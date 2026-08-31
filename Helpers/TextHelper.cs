@@ -29,7 +29,12 @@ public static class TextHelper
         if (string.IsNullOrWhiteSpace(input))
             return string.Empty;
 
-        var kicik = input.ToLowerInvariant();
+        // DİQQƏT: böyük "İ" hərfini (nöqtəli, Azərbaycan/Türk əlifbasında) əvvəlcədən adi "i"-yə
+        // çeviririk. Səbəb: .ToLowerInvariant() bu hərfi "i" + görünməz əlavə işarəyə (combining
+        // dot) çevirir, bu da mətn müqayisəsini gözlənilməz şəkildə pozur (məs. "İl" sözü
+        // "il" ilə uyğun gəlmir). Bu, real Excel idxalında tapılan bir bug idi.
+        var iDuzeldilmis = input.Replace('İ', 'i');
+        var kicik = iDuzeldilmis.ToLowerInvariant();
         var sb = new StringBuilder(kicik.Length);
 
         foreach (var ch in kicik)
